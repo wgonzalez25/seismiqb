@@ -178,13 +178,15 @@ class UnstructuredHorizon:
         low = width // 2
         high = max(width - low, 0)
 
-        shift_1, shift_2, h_min = [np.min(item) for item in locations]
-        h_max = np.max(locations[-1])
+        shift_1, shift_2, h_min = [slc.start for slc in locations]
+        h_max = locations[-1].start
 
         if iterator is None:
             # Usual case
-            iterator = list(product(*[[self.geometry.uniques[idx][i] for i in locations[idx]] for idx in range(2)]))
-            idx_iterator = np.array(list(product(*locations[:2])))
+            iterator = list(product(*[[self.geometry.uniques[idx][i]
+                                       for i in range(locations[idx].start, locations[idx].stop)]
+                                      for idx in range(2)]))
+            idx_iterator = np.array(list(product(*[list(range(slc.start, slc.stop)) for slc in locations[:2]])))
             idx_1 = idx_iterator[:, 0] - shift_1
             idx_2 = idx_iterator[:, 1] - shift_2
 
@@ -264,7 +266,7 @@ class UnstructuredHorizon:
         # Make `locations` for slide loading
         axis = self.geometry.parse_axis(axis)
         locations = self.geometry.make_slide_locations(loc, axis=axis)
-        shape = np.array([len(item) for item in locations])
+        shape = np.array([(slc.stop - slc.start) for slc in locations])
 
         # Create the same indices, as for seismic slide loading
         #TODO: make slide indices shareable
@@ -868,10 +870,7 @@ class Horizon:
         low = width // 2
         high = max(width - low, 0)
 
-        mask_bbox = np.array([[locations[0][0], locations[0][-1]+1],
-                              [locations[1][0], locations[1][-1]+1],
-                              [locations[2][0], locations[2][-1]+1]],
-                             dtype=np.int32)
+        mask_bbox = np.array([[slc.start, slc.stop] for slc in locations], dtype=np.int32)
 
         # Getting coordinates of overlap in cubic system
         (mask_i_min, mask_i_max), (mask_x_min, mask_x_max), (mask_h_min, mask_h_max) = mask_bbox
@@ -1657,7 +1656,7 @@ class Horizon:
         # Make `locations` for slide loading
         axis = self.geometry.parse_axis(axis)
         locations = self.geometry.make_slide_locations(loc, axis=axis)
-        shape = np.array([len(item) for item in locations])
+        shape = np.array([(slc.stop - slc.start) for slc in locations])
 
         # Load seismic and mask
         seismic_slide = self.geometry.load_slide(loc=loc, axis=axis)

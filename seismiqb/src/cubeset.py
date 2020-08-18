@@ -342,7 +342,7 @@ class SeismicCubeset(Dataset):
         unsalted = np.array([batch.unsalt(item) for item in batch.indices])
         background = np.zeros_like(self.geometries[idx].zero_traces)
 
-        for slice_ in np.array(batch.slices)[unsalted == self.indices[idx]]:
+        for slice_ in np.array(batch.locations)[unsalted == self.indices[idx]]:
             idx_i, idx_x, _ = slice_
             background[idx_i, idx_x] += 1
 
