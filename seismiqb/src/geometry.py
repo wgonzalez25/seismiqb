@@ -742,7 +742,7 @@ class SeismicGeometrySEGY(SeismicGeometry):
             else:
                 flag = np.prod(shape[:2]) / np.prod(self.cube_shape[:2])
                 mode = 'slide' if flag > 0.1 else 'crop'
-        print('SEG-Y', axis)
+
         if mode == 'slide':
             slc = locations[axis]
             if axis in [0, 1]:
@@ -895,8 +895,6 @@ class SeismicGeometryHDF5(SeismicGeometry):
                        'i': 0, 'x': 1, 'h': 2,
                        'iline': 0, 'xline': 1, 'height': 2, 'depth': 2}
             axis = mapping[axis]
-
-        print('HDF5', axis)
 
         if axis == 1 and 'cube_x' in self.file_hdf5:
             crop = self._load_x(*locations)
