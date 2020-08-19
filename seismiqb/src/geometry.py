@@ -194,28 +194,6 @@ class SeismicGeometry:
         raise ValueError('Wrong mode', mode)
 
 
-    def __getitem__(self, key):
-        """ Retrieve amplitudes from cube. """
-        key_ = list(key)
-        if len(key_) != len(self.cube_shape):
-            key_ += [slice(None)] * (len(self.cube_shape) - len(key_))
-
-        key, squeeze = [], []
-        for i, item in enumerate(key_):
-            max_size = self.cube_shape[i]
-
-            if isinstance(item, slice):
-                slc = slice(item.start or 0, item.stop or max_size)
-            elif isinstance(item, int):
-                item = item if item >= 0 else max_size - item
-                slc = slice(item, item + 1)
-                squeeze.append(i)
-            key.append(slc)
-
-        crop = self.load_crop(key)
-        if squeeze:
-            crop = np.squeeze(crop, axis=tuple(squeeze))
-        return crop
 
     def parse_axis(self, axis):
         """ Convert string representation of an axis into integer, if needed. """
@@ -229,7 +207,6 @@ class SeismicGeometry:
             elif axis in ['h', 'height', 'depth']:
                 axis = 2
         return axis
-
 
     def make_slide_locations(self, loc, axis=0):
         """ Create locations (sequence of locations for each axis) for desired slide along desired axis. """
@@ -765,7 +742,7 @@ class SeismicGeometrySEGY(SeismicGeometry):
             else:
                 flag = np.prod(shape[:2]) / np.prod(self.cube_shape[:2])
                 mode = 'slide' if flag > 0.1 else 'crop'
-
+        print('SEG-Y', axis)
         if mode == 'slide':
             slc = locations[axis]
             if axis in [0, 1]:
@@ -775,6 +752,30 @@ class SeismicGeometrySEGY(SeismicGeometry):
                 return np.stack([self.load_slide(loc, axis=axis)[locations[0], locations[1]]
                                  for loc in range(slc.start, slc.stop)], axis=-1)
         return self._load_crop(locations)
+
+
+    def __getitem__(self, key):
+        """ Retrieve amplitudes from cube. """
+        key_ = list(key)
+        if len(key_) != len(self.cube_shape):
+            key_ += [slice(None)] * (len(self.cube_shape) - len(key_))
+
+        key, squeeze = [], []
+        for i, item in enumerate(key_):
+            max_size = self.cube_shape[i]
+
+            if isinstance(item, slice):
+                slc = slice(item.start or 0, item.stop or max_size)
+            elif isinstance(item, int):
+                item = item if item >= 0 else max_size - item
+                slc = slice(item, item + 1)
+                squeeze.append(i)
+            key.append(slc)
+
+        crop = self.load_crop(key)
+        if squeeze:
+            crop = np.squeeze(crop, axis=tuple(squeeze))
+        return crop
 
     # Convert SEG-Y to HDF5
     def make_hdf5(self, path_hdf5=None, postfix=''):
@@ -895,6 +896,8 @@ class SeismicGeometryHDF5(SeismicGeometry):
                        'iline': 0, 'xline': 1, 'height': 2, 'depth': 2}
             axis = mapping[axis]
 
+        print('HDF5', axis)
+
         if axis == 1 and 'cube_x' in self.file_hdf5:
             crop = self._load_x(*locations)
         elif axis == 2 and 'cube_h' in self.file_hdf5:
@@ -939,3 +942,35 @@ class SeismicGeometryHDF5(SeismicGeometry):
             cube = self.file_hdf5['cube_h']
             slide = self._cached_load(cube, loc)
         return slide
+
+
+    def __getitem__(self, key):
+        """ Retrieve amplitudes from cube. """
+        key_ = list(key)
+        if len(key_) != len(self.cube_shape):
+            key_ += [slice(None)] * (len(self.cube_shape) - len(key_))
+
+        key, squeeze = [], []
+        for i, item in enumerate(key_):
+            max_size = self.cube_shape[i]
+
+            if isinstance(item, slice):
+                slc = slice(item.start or 0, item.stop or max_size)
+            elif isinstance(item, int):
+                item = item if item >= 0 else max_size - item
+                slc = slice(item, item + 1)
+                squeeze.append(i)
+            key.append(slc)
+
+        shape = [(slc.stop - slc.start) for slc in key]
+        axis = np.argmin(shape)
+        if axis == 0:
+            crop = self.file_hdf5['cube'][key[0], key[1], key[2]]
+        elif axis == 1:
+            crop = self.file_hdf5['cube_x'][key[1], key[2], key[0]].transpose((2, 0, 1))
+        elif axis == 2:
+            crop = self.file_hdf5['cube_h'][key[2], key[0], key[1]].transpose((1, 2, 0))
+
+        if squeeze:
+            crop = np.squeeze(crop, axis=tuple(squeeze))
+        return crop
